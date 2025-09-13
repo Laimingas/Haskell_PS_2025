@@ -31,20 +31,37 @@ BNF (Backus-Naur Form) is a **formal way to describe the syntax** of your DSL co
 
 ```bnf
 <command> ::= "create workout" <workout_name>
-            | "add exercise" <exercise_name> <sets> <reps> [<weight>] "to" <workout_name>
+            | "add exercise" <exercise_name> <sets> "x" <reps> "to" <workout_name>
+            | "add exercise" <exercise_name> <sets> "x" <reps> <weight> "to" <workout_name>
             | "add subworkout" <subworkout_name> "to" <workout_name>
             | "remove exercise" <exercise_name> "from" <workout_name>
             | "start" <workout_name>
+            | "stop" <workout_name>
             | "dump examples"
 
-<workout_name> ::= <string>
-<exercise_name> ::= <string>
-<sets> ::= <integer>
-<reps> ::= <integer>
-<weight> ::= <integer>
-<string> ::= sequence of letters, numbers, and spaces
-<integer> ::= 0 | 1 | 2 | ...
+<workout_name>    ::= <quoted_string>
+<subworkout_name> ::= <quoted_string>
+<exercise_name>   ::= <quoted_string>
 
+<quoted_string> ::= "\"" <chars> "\""
+
+<chars> ::= <char> | <char> <chars>
+<char>  ::= "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j"
+          | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t"
+          | "u" | "v" | "w" | "x" | "y" | "z"
+          | "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J"
+          | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T"
+          | "U" | "V" | "W" | "X" | "Y" | "Z"
+          | "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+          | " " | "-" | "_"
+
+<sets>   ::= <integer>
+<reps>   ::= <integer>
+<weight> ::= <integer> "kg"
+
+<integer> ::= <digit> | <digit> <integer>
+<digit>   ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+```
 
 ---
 
