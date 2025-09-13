@@ -18,6 +18,7 @@ The domain includes **workouts** and **exercises**, and supports hierarchical wo
 - `add subworkout <subworkout> to <workout>`: add a nested workout to a workout.
 - `remove exercise <exercise> from <workout>`: remove an exercise.
 - `start <workout>`: begin a workout.
+- `stop <workout>`: stop workout.
 - `dump examples`: show example commands.
 
 **Recursive element:**  
