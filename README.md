@@ -9,8 +9,7 @@ The domain includes **workouts** and **exercises**, and supports hierarchical wo
 
 **Entities:**
 - **Workout**: a collection of exercises or other sub-workouts.
-- **Exercise**: defined by a name, number of sets, repetitions, and optional weight.
-- **Commands**: operations on workouts and exercises, like creating, adding, removing, starting a workout, and viewing examples.
+- **Exercise**: defined by a name, number of sets, repetitions, and/or optional weight.
 
 **Operations:**
 - `create workout <name>`: create a new workout.
@@ -24,6 +23,16 @@ The domain includes **workouts** and **exercises**, and supports hierarchical wo
 **Recursive element:**  
 - Workouts can contain **sub-workouts**, which can themselves contain exercises or other sub-workouts.
 
+---
+
+## Examples
+```
+create workout "Morning Routine"
+add exercise "Push-ups" 3 15 to "Morning Routine"
+add exercise "Squats" 3 20 to "Morning Routine"
+create workout "Upper Body Blast"
+add subworkout "Upper Body Blast" to "Morning Routine"
+```
 ---
 
 ## BNF Grammar
@@ -64,12 +73,3 @@ BNF (Backus-Naur Form) is a **formal way to describe the syntax** of your DSL co
 <digit>   ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
 ```
 
----
-
-## Examples
-
-create workout "Morning Routine"
-add exercise "Push-ups" 3 15 to "Morning Routine"
-add exercise "Squats" 3 20 to "Morning Routine"
-create workout "Upper Body Blast"
-add subworkout "Upper Body Blast" to "Morning Routine"
