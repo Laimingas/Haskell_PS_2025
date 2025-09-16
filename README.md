@@ -13,11 +13,14 @@ The domain includes **workouts** and **exercises**, and supports hierarchical wo
 
 **Operations:**
 - `create workout <name>`: create a new workout.
-- `add exercise <exercise> <sets> <reps> [<weight>] to <workout>`: add an exercise to a workout.
+- `add exercise <exercise> <sets> <reps> to <workout>`: add an exercise to a workout without weight.
+- `add exercise <exercise> <sets> <reps> <weight> to <workout>`: add an exercise to a workout with weight.
 - `add subworkout <subworkout> to <workout>`: add a nested workout to a workout.
 - `remove exercise <exercise> from <workout>`: remove an exercise.
 - `start <workout>`: begin a workout.
 - `stop <workout>`: stop workout.
+- `show all workouts`: list all workouts.
+- `show workout <workout>`: show a specific workout and its contents.
 - `dump examples`: show example commands.
 
 **Recursive element:**  
@@ -47,6 +50,8 @@ BNF (Backus-Naur Form) is a **formal way to describe the syntax** of your DSL co
             | "remove exercise" <exercise_name> "from" <workout_name>
             | "start" <workout_name>
             | "stop" <workout_name>
+            | "show all workouts"
+            | "show workout" <workout_name>
             | "dump examples"
 
 <workout_name>    ::= <quoted_string>
