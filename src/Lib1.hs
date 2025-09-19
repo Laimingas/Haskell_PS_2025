@@ -4,15 +4,15 @@ module Lib1
 
 
 data Command
-  = CreateWorkout String
-  | AddExerciseWithWeight String Int Int Int String  
-  | AddExerciseNoWeight String Int Int String         
-  | AddSubWorkout String String
-  | RemoveExercise String String
+  = CreateWorkout String [Command]
+  | AddExerciseWithWeight String Int Int Int  
+  | AddExerciseNoWeight String Int Int         
+  | RemoveExercise String
   | StartWorkout String
   | StopWorkout String
   | ShowAllWorkouts
   | ShowWorkout String
+  | SelectWorkout String [Command]
   | DumpExamples
   deriving (Show, Eq)
 
@@ -20,10 +20,19 @@ data Command
 examples :: [Command]
 examples =
   [ CreateWorkout "Morning Routine"
-  , AddExerciseNoWeight "Push-ups" 3 15 "Morning Routine"
-  , AddExerciseWithWeight "Squats" 3 20 50 "Morning Routine"
-  , CreateWorkout "Upper Body Blast"
-  , AddSubWorkout "Upper Body Blast" "Morning Routine"
+      [ AddExerciseNoWeight "Push-ups" 3 15
+      , AddExerciseNoWeight "Squats" 3 20
+      , CreateWorkout "Upper Body Blast"   
+          [ AddExerciseWithWeight "Bench Press" 3 10 50
+          , AddExerciseWithWeight "Pull-ups" 3 8 0
+          ]
+      ]
+  , SelectWorkout "Morning Routine"
+      [ AddExerciseWithWeight "Deadlift" 5 5 100
+      , RemoveExercise "Push-ups"
+      , CreateWorkout "Leg Day"
+          [ AddExerciseNoWeight "Lunges" 3 12 ]
+      ]
   , ShowAllWorkouts
   , ShowWorkout "Morning Routine"
   , StartWorkout "Morning Routine"

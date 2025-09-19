@@ -12,29 +12,49 @@ The domain includes **workouts** and **exercises**, and supports hierarchical wo
 - **Exercise**: defined by a name, number of sets, repetitions, and/or optional weight.
 
 **Operations:**
-- `create workout <name>`: create a new workout.
-- `add exercise <exercise> <sets> <reps> to <workout>`: add an exercise to a workout without weight.
-- `add exercise <exercise> <sets> <reps> <weight> to <workout>`: add an exercise to a workout with weight.
-- `add subworkout <subworkout> to <workout>`: add a nested workout to a workout.
-- `remove exercise <exercise> from <workout>`: remove an exercise.
+- `create workout <name> { ... }`: create a new workout with nested exercises or sub-workouts.
+- `add exercise <exercise> <sets> <reps>`: add an exercise to a workout without weight.
+- `add exercise <exercise> <sets> <reps> <weight>`: add an exercise to a workout with weight.
+- `remove exercise <exercise>`: remove an exercise.
 - `start <workout>`: begin a workout.
 - `stop <workout>`: stop workout.
 - `show all workouts`: list all workouts.
 - `show workout <workout>`: show a specific workout and its contents.
+- `select workout <name> { ... }`: select an existing workout and apply nested operations.
 - `dump examples`: show example commands.
 
 **Recursive element:**  
-- Workouts can contain **sub-workouts**, which can themselves contain exercises or other sub-workouts.
+- `create workout` allows **recursive nesting of workouts and commands**.
+
 
 ---
 
 ## Examples
 ```
-create workout "Morning Routine"
-add exercise "Push-ups" 3 15 to "Morning Routine"
-add exercise "Squats" 3 20 to "Morning Routine"
-create workout "Upper Body Blast"
-add subworkout "Upper Body Blast" to "Morning Routine"
+create workout "Morning Routine" 
+{
+    add exercise "Push-ups" 3 15
+    add exercise "Squats" 3 20
+    create workout "Upper Body Blast" 
+    {
+        add exercise "Bench Press" 3 10 50
+        add exercise "Pull-ups" 3 8 0
+    }
+}
+select workout "Morning Routine" 
+{
+    add exercise "Deadlift" 5 5 100
+    remove exercise "Push-ups"
+    create workout "Leg Day" 
+    {
+        add exercise "Lunges" 3 12
+    }
+}
+show all workouts
+show workout "Morning Routine"
+start "Morning Routine"
+stop "Morning Routine"
+dump examples
 ```
 ---
 
@@ -43,19 +63,20 @@ add subworkout "Upper Body Blast" to "Morning Routine"
 BNF (Backus-Naur Form) is a **formal way to describe the syntax** of your DSL commands.
 
 ```bnf
-<command> ::= "create workout" <workout_name>
-            | "add exercise" <exercise_name> <sets> "x" <reps> "to" <workout_name>
-            | "add exercise" <exercise_name> <sets> "x" <reps> <weight> "to" <workout_name>
-            | "add subworkout" <subworkout_name> "to" <workout_name>
-            | "remove exercise" <exercise_name> "from" <workout_name>
+<command> ::= "create workout" <workout_name> "{" <command_list> "}"
+            | "add exercise" <exercise_name> <sets> <reps>
+            | "add exercise" <exercise_name> <sets> <reps> <weight>
+            | "remove exercise" <exercise_name>
             | "start" <workout_name>
             | "stop" <workout_name>
             | "show all workouts"
             | "show workout" <workout_name>
+            | "select workout" <workout_name> "{" <command_list> "}"
             | "dump examples"
 
+<command_list> ::= <command> | <command> <command_list>
+
 <workout_name>    ::= <quoted_string>
-<subworkout_name> ::= <quoted_string>
 <exercise_name>   ::= <quoted_string>
 
 <quoted_string> ::= "\"" <chars> "\""
