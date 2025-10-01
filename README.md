@@ -30,7 +30,7 @@ The domain includes **workouts** and **exercises**, and supports hierarchical wo
 ---
 
 ## Examples
-```
+```haskell
 create workout "Morning Routine" 
 {
     add exercise "Push-ups" 3 15

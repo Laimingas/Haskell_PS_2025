@@ -1,7 +1,9 @@
 module Lib1
-    ( examples, Command(..)
+    ( examples, Command(..), Dumpable(..)
     ) where
 
+data Dumpable = Examples
+  deriving Show
 
 data Command
   = CreateWorkout String [Command]
@@ -13,9 +15,8 @@ data Command
   | ShowAllWorkouts
   | ShowWorkout String
   | SelectWorkout String [Command]
-  | DumpExamples
-  deriving (Show, Eq)
-
+  | Dump Dumpable
+  deriving Show
 
 examples :: [Command]
 examples =
@@ -37,5 +38,5 @@ examples =
   , ShowWorkout "Morning Routine"
   , StartWorkout "Morning Routine"
   , StopWorkout "Morning Routine"
-  , DumpExamples
+  , Dump Examples
   ]
