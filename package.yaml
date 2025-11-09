@@ -39,6 +39,7 @@ library:
     - random
     - stm
     - async
+    - directory
   when:
   - condition: false
     other-modules: Paths_fp2025
@@ -70,6 +71,7 @@ executables:
     - repline
     - stm
     - async
+    - directory
 
 tests:
   fp2024-test:
@@ -83,3 +85,4 @@ tests:
     - fp2025
     - tasty
     - tasty-hunit
+    
