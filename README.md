@@ -100,43 +100,40 @@ BNF (Backus-Naur Form) is a **formal way to describe the syntax** of your DSL co
 ```
 
 ---
-
 ## State Persistence
 
-The program is stateful and persistent. State persistence is managed through an asynchronous thread (`storageOpLoop`), which handles all file I/O operations (`storage.txt`) via a channel (`Chan StorageOp`).
+When thinking about how users interact with our workout app, I kept coming back to a key question: what’s the point in letting users build up complex workout plans if the app just forgets everything the moment it’s closed? Persistence isn’t just a convenience—it’s fundamental to user trust and the integrity of the application state. This is where the notion of state and its persistence become central, especially in a functional paradigm like Haskell, where explicit state modeling is the norm.
 
-### Implementation Details:
+My approach is to make the app truly respect the user’s effort. Every change a user makes—adding a workout, tweaking an exercise, or restructuring their plan—gets captured. But instead of serializing some unreadable data structure, I serialize the blueprint: the very DSL commands that built the state in the first place. This means that after each modification, the app converts the entire current state back into a sequence of DSL commands, and writes them to **`storage.txt`**. On startup, these commands are replayed—much like an event sourcing system—reconstructing the exact state as it was left.
 
-State persistence is managed concurrently using **Software Transactional Memory (STM)** for the `State` container and **Channels (`Chan StorageOp`)** for file I/O operations.
+### How it Works: Ensuring Speed, Safety, and Integrity
 
-* **Asynchronicity:** File I/O operations (`readFile`, `writeFile`) are delegated to a dedicated **storage thread** (`storageOpLoop`) via the channel, ensuring the main application remains responsive.
-* **Loading (`load`):** The entire content of `storage.txt` is read, parsed using the DSL parser (`many parseCommand`), and the resulting list of commands is applied sequentially to an empty state, effectively restoring the program's condition.
-* **Saving (`save`):** The program state is first **serialized** into a string of commands and then securely passed to the storage thread for atomic writing to the file.
+A common problem is that file operations are slow, often making the application freeze or feel unresponsive. This separation is crucial in Haskell because we want to protect the purity of our core logic from the unpredictable nature of side effects. To maintain responsiveness and reliability, file operations are isolated in their own context, strictly separated from the main application logic:
 
+* **Asynchronous I/O via STM and Chans:** Rather than letting `readFile` or `writeFile` block the main thread , all I/O is funneled through a dedicated storage thread, implemented using a `Chan StorageOp`. This thread acts as a consumer for storage jobs, so the main application thread never waits on disk access. STM (Software Transactional Memory) is leveraged to ensure safe communication and atomicity.
+* **Loading (`load`):** When the app starts, it reads `storage.txt`, parses each DSL command, and applies them in sequence to an initially empty state. This deterministic replay guarantees a fresh, clean reconstruction of the user’s workouts,this guarantees reliable restoration and ensures we don't end up with partially saved or corrupted workout data.
+* **Saving (`save`):** Whenever the user’s state changes, the app serializes the entire state into a command string. This string is handed off to the storage thread, which writes it in one go—ensuring atomicity and reducing the risk of partial writes or corrupt files.
 
-### Serialization Strategy
+### Serialization: Deliberate Minimalism
 
-The key to efficient persistence is ensuring the saved commands reconstruct the final state from scratch, without relying on modification commands (`select workout`, `remove exercise`).
+A crucial consideration in serialization is deciding *what* to persist. There’s a temptation to log every user action—but that leads to noisy, bloated state. Instead, I made a conscious decision to only store those commands necessary to precisely reconstruct the final state of the workout hierarchy. Things like selecting or deleting an exercise are just in-session steps and are not saved. We maintain a minimalist storage approach, focusing only on the data that truly defines the user's permanent workout plan.
 
-The serialization strategy is designed for **idempotent reconstruction**; we only save the commands necessary to create the final structure, ignoring transient session data and modification commands.
-
-The serialization strategy is designed for **idempotent reconstruction**; we only save the commands necessary to create the final structure, ignoring transient session data and modification commands.
-
-| State Element | Generated Command(s) | Rationale |
+| State Element | Serialized Command | Why? |
 | :--- | :--- | :--- |
-| **`Workout`** (Hierarchy) | `create workout "<name>" { <content> }` | Each workout, including its nested `subWorkouts` and `exercises`, is generated as a single, fully **nested `create workout` block**. This ensures the entire hierarchy can be reconstructed reliably from an empty starting point. |
-| **`Excercise`** | `add exercise "<n>" <s> <r>` or `add exercise "<n>" <s> <r> <w>kg` | Exercises are directly mapped to their corresponding `add exercise` commands and placed within the enclosing `{...}` block. |
-| **Modification Commands** |  `select workout`, `remove exercise` | Commands that modify existing state are **not serialized**. Only the **final structure** (e.g., the exercises that remain after removal) is recorded. This prevents redundant or conflicting operations during state restoration. |
-| **`currentWorkoutName`** | **Ignored** | This field is not part of the persistent data model and is never serialized to storage.txt. Consequently, it is always reset to Nothing upon program restart, requiring the user to explicitly use a command like select workout to set the context again. |
----
-### 3. Serialization Examples 
+| **Workout Hierarchy** | `create workout "<name>" { <content> }` | Every workout (including sub-workouts) is serialized as a nested `create workout` block. This approach clearly and simply captures the full structure, guaranteeing that the workout can be reliably rebuilt from an empty state. |
+| **Exercises** | `add exercise "<n>" <sets> <reps> <weight>kg` | Each exercise becomes its own command, recorded within the proper workout block. This keeps the mapping between workouts and their exercises explicit and human-readable. |
+| **Modification Commands** (`select`, `remove`, etc.) | **Excluded** | Such actions are fleeting and temporary. Instead of logging every step, we focus only on the durable output: the finished state, represented by the exercises that survived the session. |
+| **`currentWorkoutName`** | **Ignored** | This is a UI detail: it tracks what the user is currently editing, but has no bearing on the actual data. It defaults to `Nothing` on restart, aligning with pure functional design. |
 
-The serialization process ensures that the generated command list cleanly and rebuilds the final state.
+---
+
+### Some Examples
+
+Let’s take a closer look at what actually gets saved in `storage.txt`, and why these choices matter.
 
 #### Example A: Simple Hierarchy
 
-**Actual State Stored in Memory (`State`):**
-A state containing two main workouts: "Morning" and "Evening", where "Evening" contains a sub-workout "Warmup".
+Imagine a user who’s set up two main workouts, “Morning” and “Evening.” The “Evening” workout even features a sub-workout, “Warmup,” demonstrating nested hierarchies.
 
 | Workout Name | Exercises | Sub-Workouts |
 | :--- | :--- | :--- |
@@ -144,49 +141,57 @@ A state containing two main workouts: "Morning" and "Evening", where "Evening" c
 | **Evening** | None | Warmup |
 | **Warmup** | Stretching (1x10, 0kg) | None |
 
-**Generated `storage.txt` Content (Used for Restoration):**
-create workout "Morning" { add exercise "Push-ups" 3 15 } create workout "Evening" { create workout "Warmup" { add exercise "Stretching" 1 10 0kg } }
+**What gets saved:**
 
+```
+create workout "Morning" { add exercise "Push-ups" 3 15 }
+create workout "Evening" { create workout "Warmup" { add exercise "Stretching" 1 10 0kg } }
+```
+
+This syntax not only represents the hierarchy clearly, but is also resilient to future changes—if I later want to add more fields or richer semantics, the DSL can evolve in a backward-compatible way.
 
 ---
 
-#### Example B: Post-Modification State (Efficiency)
+#### Example B: After Modifications
 
-This demonstrates that **modification commands** (`select workout`, `remove exercise`) are **omitted** as they do not define the final structure.
+Consider a session where the user:
 
-**User Executed Commands (Session History):**
-1. `create workout "Plan A" { add exercise "Biceps" 3 10 }`
-2. `select workout "Plan A" { remove exercise "Biceps" }`
-3. `add exercise "Triceps" 3 10 50kg`
+1. Creates “Plan A” with a “Biceps” exercise.
+2. Deletes “Biceps.”
+3. Adds a “Triceps” exercise.
 
-**Actual Final State in Memory (`State`):**
-The final state only contains the "Triceps" exercise.
+The only thing that ends up saved is the final, meaningful state: “Triceps” under “Plan A.” No clutter from past mistakes or transient actions.
 
 | Workout Name | Final Exercises | Sub-Workouts |
 | :--- | :--- | :--- |
 | **Plan A** | Triceps (3x10, 50kg) | None |
 
-**Generated `storage.txt` Content (Minimal and Clean):**
-create workout "Plan A" { add exercise "Triceps" 3 10 50kg }
+**What gets saved:**
 
-*Note: The commands from steps 1 and 2 are effectively replaced by step 3 in the final persistent state.*
+```
+create workout "Plan A" { add exercise "Triceps" 3 10 50kg }
+```
+
+This approach enforces an “eventual consistency” model: storage only reflects the stable, intentional structure the user wants to keep—not the journey to get there.
+
+*No trace of the deleted “Biceps” exercise, and none of the session commands—just the end result.*
 
 ---
 
+### Example Walkthrough: Simple Persistence
 
-### Example: Simple Workout Persistence
+Step 1 & 2: Start the app, create two workouts.
 
-Step 1 & 2: Launch and State Modification
+![Screenshot: app launched and workouts created](screenshots/Screen1.png)
 
-![Program was launched and two workouts were created.](screenshots/Screen1.png)
+![Screenshot: what storage.txt looks like now](screenshots/Screen2.png)
 
-![Storage.txt](screenshots/Screen2.png)
+Step 3: Quit the app.
 
-Step 3: Exit Program
+![Screenshot: app exiting](screenshots/Screen3.png)
 
-![Screenshot showing program exiting](screenshots/Screen3.png)
+Step 4 & 5: Open the app again—everything’s still there, just as you left it.
 
-Step 4 & 5: Relaunch and State Restoration
+![Screenshot: app relaunching, state restored](screenshots/Screen4.png)
 
-![Screenshot showing program relaunch](screenshots/Screen4.png)
-
+---
