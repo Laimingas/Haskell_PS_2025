@@ -102,82 +102,91 @@ BNF (Backus-Naur Form) is a **formal way to describe the syntax** of your DSL co
 ---
 ## State Persistence
 
-When we open up the program it works fine and all, but when our program is workout planer whats the point if we can use it only one time and our all programs are just deleted. Yes we can leave it open, but it will eat out memory. So that is why we use `storage.txt` to save our user information, using state and IO operations.
+This version of the program saves and loads its state, so everything you do stays even after you close it.
 
-### How it Works:
+When the program runs, it:
 
-A common problem is that when we write to file, we have to do it on separate threads so our program won't start lagging or multiple blocks of information would just mess up our storage. Main things ensuring our programs best working capability:
+1. Loads the previous state from a file called storage.txt.
 
-* **Asynchronous I/O via STM and Chans:** Rather then doing everything on main thread, all Input Output operations going through a dedicated storage thread. This storage thread makes our program life easier, so the main thread never waits on disk access.
-* **Loading (`load`):** When the app starts, it reads `storage.txt`, parses each DSL command, and applies them in sequence to our empty state. This restores out written previous data.
-* **Saving (`save`):** Whenever the user writes something (exacutes some kind of command), the app reads input and that input (which is serialized) is handed off to the mentioned storage thread, which writes that input to the file.
+2. Lets you enter and run commands (like adding workouts or exercises).
 
-### Serialization:
+3. Saves the updated state automatically when you exit or when it’s told to save.
 
-Thinking about all our commands we do not need to save everything. For example why do we need to save remove and select which is only temporary commands.
-So this table shows commands which we store and not.
+The saved file is just a list of commands — basically a script that can recreate the same state again.
+That means if you had workouts and exercises created before, they’ll appear next time you run it.
 
-| State Element | Serialized Command | Why? |
-| :--- | :--- | :--- |
-| **Workout Hierarchy** | `create workout "<name>" { <content> }` | Every workout (including sub-workouts) is nested in `create workout` block. |
-| **Exercises** | `add exercise "<n>" <sets> <reps> <weight>kg` | Each exercise becomes its own command, written in the specific workout block (Where user added it). |
-| **Modification Commands** (`select`, `remove`, etc.) | **Excluded** | These commands are temporary so it is usless to save them. |
-| **`currentWorkoutName`** | **Ignored** | This only saves in state to know which Workout is now editing |
+### How the state maps to commands
+
+The state is turned into a list of DSL commands when saving.
+For example, if you have this in memory:
+
+The state is turned into a list of DSL commands when saving.
+For example, if you have this in memory:
+
+```haskell
+State {
+  workouts = [
+    Workout "Morning Routine"
+      [ ExerciseNoWeight "Squats" 3 20
+      , ExerciseWithWeight "Deadlift" 5 5 100
+      ]
+      []
+  ],
+  currentWorkoutName = Nothing
+}
+```
+
+Then the saved file would look like:
+```Haskell
+create workout "Morning Routine"
+{
+    add exercise "Squats" 3 20
+    add exercise "Deadlift" 5 5 100kg
+}
+```
+
+When you load the program again, it reads that file, parses the commands, and builds the same state.
+
+### Another example
+
+If you had nested workouts:
+
+```haskell
+State {
+  workouts = [
+    Workout "Full Body" 
+      [ExerciseNoWeight "Push-ups" 3 15]
+      [Workout "Leg Day"
+        [ExerciseNoWeight "Lunges" 3 12]
+        []
+      ]
+  ],
+  currentWorkoutName = Nothing
+}
+```
+
+It would be saved as:
+```Haskell
+create workout "Full Body"
+{
+    add exercise "Push-ups" 3 15
+    create workout "Leg Day"
+    {
+        add exercise "Lunges" 3 12
+    }
+}
+```
+
+### Notes
+
+The program saves the state automatically to storage.txt using a background thread.
+
+When you rerun the app, it reconstructs everything exactly as before.
+
 
 ---
 
-### Some Examples
-
-Let’s look at what actually gets saved in `storage.txt`.
-
-#### Example A:
-
-Imagine a user who’s set up two main workouts, “Morning” and “Evening.” The “Evening” workout even features a sub-workout, “Warmup,” demonstrating nested hierarchies.
-
-| Workout Name | Exercises | Sub-Workouts |
-| :--- | :--- | :--- |
-| **Morning** | Push-ups (3x15) | None |
-| **Evening** | None | Warmup |
-| **Warmup** | Stretching (1x10, 0kg) | None |
-
-**What gets saved:**
-
-```
-create workout "Morning" { add exercise "Push-ups" 3 15 }
-create workout "Evening" { create workout "Warmup" { add exercise "Stretching" 1 10 0kg } }
-```
-
-These get saved and when user opens progam the second time, he can use show workout "workout name" and will show all the excersises and sub-workouts.
-
----
-
-#### Example B: After Modifications
-
-Consider a session where the user:
-
-1. Creates “Plan A” with a “Biceps” exercise.
-2. Deletes “Biceps.”
-3. Adds a “Triceps” exercise.
-
-The only thing that ends up saved is the final, meaningful information: “Triceps” under “Plan A.”.
-
-| Workout Name | Final Exercises | Sub-Workouts |
-| :--- | :--- | :--- |
-| **Plan A** | Triceps (3x10, 50kg) | None |
-
-**What gets saved:**
-
-```
-create workout "Plan A" { add exercise "Triceps" 3 10 50kg }
-```
-
-User only gets the final workout structure.
-
-*No trace of the deleted “Biceps” exercise, because it is temporary.*
-
----
-
-### Example Walkthrough: Simple Persistence
+### Example Walkthrough:
 
 Step 1 & 2: Start the app, create workouts (check storage.txt file).
 
