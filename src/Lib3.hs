@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Lib3(
-    emptyState, State(..), execute, load, save, storageOpLoop, StorageOp, Parser(..), parseCommand) where
+    emptyState, State(..), execute, load, save, storageOpLoop, StorageOp, Parser(..), parseCommand, updateState, renderCommand) where
 
 import qualified Lib1
 import Control.Applicative (Alternative(..), many)
@@ -260,6 +260,56 @@ updateState state@(State ws (Just cwName)) (Lib1.RemoveExercise name) =
 
 updateState state _ = state
 
+-- =====================
+-- Rendering
+-- =====================
+
+renderExercise :: Excercise -> [String]
+renderExercise (ExerciseNoWeight n s r) =
+  ["  " ++ n ++ ": " ++ show s ++ " sets of " ++ show r ++ " reps"]
+renderExercise (ExerciseWithWeight n s r w) =
+  ["  " ++ n ++ ": " ++ show s ++ " sets of " ++ show r ++ " reps with " ++ show w ++ "kg"]
+
+renderWorkout :: Workout -> [String]
+renderWorkout (Workout name exs subs) =
+  ("Workout: " ++ name) : concatMap renderExercise exs ++ concatMap renderWorkout subs
+
+renderCommand :: State -> Lib1.Command -> [String]
+renderCommand st (Lib1.Dump Lib1.Examples) =
+  "Examples:" : map Lib2.toCliCommand Lib1.examples
+
+renderCommand st Lib1.ShowAllWorkouts =
+  map wname (workouts st)
+
+renderCommand st (Lib1.ShowWorkout name) =
+  case findWorkout name (workouts st) of
+    Just w  -> renderWorkout w
+    Nothing -> ["Workout \"" ++ name ++ "\" not found."]
+
+renderCommand st (Lib1.CreateWorkout name _) =
+  ["Workout \"" ++ name ++ "\" created."]
+
+renderCommand st (Lib1.SelectWorkout name _) =
+  ["Selected workout \"" ++ name ++ "\"."]
+
+renderCommand st (Lib1.AddExerciseNoWeight name sets reps) =
+  ["Added exercise \"" ++ name ++ "\" (" ++ show sets ++ "x" ++ show reps ++ ")."]
+
+renderCommand st (Lib1.AddExerciseWithWeight name sets reps w) =
+  ["Added exercise \"" ++ name ++ "\" (" ++ show sets ++ "x" ++ show reps ++ ") with " ++ show w ++ "kg."]
+
+renderCommand st (Lib1.RemoveExercise name) =
+  ["Removed exercise \"" ++ name ++ "\" (if it existed)."]
+
+renderCommand st (Lib1.StartWorkout name) =
+  ["Started workout \"" ++ name ++ "\"."]
+
+renderCommand st (Lib1.StopWorkout name) =
+  ["Stopped workout \"" ++ name ++ "\"."]
+
+renderCommand _ cmd = ["Parsed as " ++ show cmd]
+
+
 execute :: TVar State -> Lib1.Command -> IO ()
 execute tvar cmd = do
   newState <- atomically $ do
@@ -268,29 +318,8 @@ execute tvar cmd = do
     writeTVar tvar newState
     return newState
 
-  let printExercise (ExerciseNoWeight n s r) =
-        putStrLn $ "  " ++ n ++ ": " ++ show s ++ " sets of " ++ show r ++ " reps"
-      printExercise (ExerciseWithWeight n s r w) =
-        putStrLn $ "  " ++ n ++ ": " ++ show s ++ " sets of " ++ show r ++ " reps with " ++ show w ++ "kg"
-
-      printWorkout (Workout name exs subs) = do
-        putStrLn $ "Workout: " ++ name
-        mapM_ printExercise exs
-        mapM_ printWorkout subs
-
-  case cmd of
-    Lib1.Dump Lib1.Examples ->
-      mapM_ putStrLn (Lib2.process cmd)
-
-    Lib1.ShowAllWorkouts ->
-      mapM_ (putStrLn . wname) (workouts newState)
-
-    Lib1.ShowWorkout name ->
-      case findWorkout name (workouts newState) of
-        Just w  -> printWorkout w
-        Nothing -> putStrLn $ "Workout \"" ++ name ++ "\" not found."
-
-    _ -> return ()
+  let outLines = renderCommand newState cmd
+  mapM_ putStrLn outLines
 
 -- =====================
 -- Storage Handling

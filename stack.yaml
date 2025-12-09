@@ -1,4 +1,7 @@
 resolver: lts-22.44
-system-ghc: true
+system-ghc: True
 packages:
 - .
+extra-deps:
+  - scotty-0.20.1
+  - http-types-0.12.4
