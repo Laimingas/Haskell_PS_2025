@@ -59,6 +59,8 @@ main = do
           status status400
           text $ TL.pack $ "Parser Error: " ++ err
         Right (cmd, _) -> do
+          liftIO $ putStrLn $ "SERVER RECEIVED: " ++ bodyText
+
           newState <- liftIO $ atomically $ do
             s <- readTVar stVar
             let s' = Lib3.updateState s cmd
@@ -66,6 +68,8 @@ main = do
             return s'
           let cliOut = Lib3.renderCommand newState cmd
               resp = unlines cliOut
+
+          liftIO $ putStrLn $ "SERVER RESPONDED: " ++ resp
           text $ TL.pack resp
 
 

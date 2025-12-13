@@ -203,3 +203,56 @@ Step 4 & 5: Open the app and all the information still there, just as you left i
 ![Screenshot: app relaunching, state restored](screenshots/Screen4.png)
 
 ---
+## Client and Server
+
+### Web Framework
+
+For the server I chose Scotty. It is a Haskell web framework that accepts plain text commands via POST /command.
+
+### QuickCheck tests 
+Screenshot showing that QuickCheck tests pass.
+![Screenshot: of Lib4 Tests](screenshots/Lib4Tests.png)
+
+### Client-server communication
+Screenshots showing the Free Monad DSL being executed and server side logs. 
+
+Free Monad DSL
+![Screenshot: Free Monad DSL](screenshots/FMDSL.png)
+
+Client logs show each request and the response and server logs shows received requests and responses.
+Client and server communication screenshots: 
+
+First Screenshot:
+![Screenshot: Client-Server](screenshots/ClientServer.png)
+Second Screenshot:
+![Screenshot: Client-Server2](screenshots/ClientServer2.png)
+
+### Client-side interpreter
+Same Free Monad DSL which was sent to server
+![Screenshot: Free Monad DSL](screenshots/FMDSL.png)
+
+These screenshots shows the Free‑monad DSL being executed locally. The output shows the response for each DSL command and the state after each step, so you see what changed, like new exercise added or deleted.
+
+First Screenshot:
+![Screenshot: Client-side](screenshots/ClientSide.png)
+Second Screenshot:
+![Screenshot: client-side 2](screenshots/ClientSide2.png)
+
+### Persistence
+The server persists state to storage.txt (loaded at startup, saved periodically and on shutdown).
+
+### How to run Server and Client
+
+First build project:
+**Stack build**
+
+Then Start the server
+**stack exec fp2025-server**
+
+After the server is started run client:
+**stack exec fp2025-client**
+
+And you will see Server and Client communication
+
+All info is saved in storage.txt
+

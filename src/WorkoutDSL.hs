@@ -1,10 +1,10 @@
 {-# LANGUAGE GADTs, DeriveFunctor, FlexibleContexts #-}
 
 module WorkoutDSL
-  ( WorkoutF(..), WorkoutFree, createWorkout, selectWorkout, addExerciseWithWeight
+  ( WorkoutF(..), WorkoutFree, createWorkout, selectWorkout, selectWorkoutOnly, addExerciseWithWeight
   , addExerciseNoWeight, removeExercise, startWorkout, stopWorkout
   , showAllWorkouts, showWorkout, dumpExamples
-  , runHttpInterpreter, runPureInterpreter
+  , runHttpInterpreter, runPureInterpreter, runPureInterpreterWithLogger
   ) where
 
 import qualified Lib1
@@ -37,6 +37,9 @@ createWorkout n cs = liftF (CreateWorkout n cs id)
 selectWorkout :: String -> [Lib1.Command] -> WorkoutFree String
 selectWorkout n cs = liftF (SelectWorkout n cs id)
 
+selectWorkoutOnly :: String -> WorkoutFree String
+selectWorkoutOnly name = selectWorkout name []
+
 addExerciseWithWeight :: String -> Int -> Int -> Int -> WorkoutFree String
 addExerciseWithWeight a s r w = liftF (AddExerciseWithWeight a s r w id)
 
@@ -65,7 +68,6 @@ dumpExamples = liftF (DumpExamples id)
 -- Interpreter 1: HTTP client based (uses send function)
 -- ==============================================
 
--- sendAction :: Lib1.Command -> IO String
 runHttpInterpreter :: (Lib1.Command -> IO String) -> WorkoutFree a -> IO a
 runHttpInterpreter sendAction = iterM interp
   where
@@ -136,3 +138,90 @@ runPureInterpreter st (Free (DumpExamples next)) =
       st'  = Lib3.updateState st cmd
       resp = unlines (Lib3.renderCommand st' cmd)
   in runPureInterpreter st' (next resp)
+
+-- ==============================================
+-- Interpreter 3: Pure interpreter WITH logging callback
+-- ==============================================
+
+runPureInterpreterWithLogger :: (String -> IO ()) -> Lib3.State -> WorkoutFree a -> IO (a, Lib3.State)
+runPureInterpreterWithLogger _ st (Pure a) = return (a, st)
+
+runPureInterpreterWithLogger logger st (Free (CreateWorkout n cs next)) = do
+  let cmd = Lib1.CreateWorkout n cs
+      st' = Lib3.updateState st cmd
+      resp = unlines (Lib3.renderCommand st' cmd)
+  logger $ "--== PURE STEP: CreateWorkout -> response:\n" ++ resp
+  logger $ "--== PURE STATE AFTER STEP: " ++ show st'
+  runPureInterpreterWithLogger logger st' (next resp)
+
+runPureInterpreterWithLogger logger st (Free (SelectWorkout n cs next)) = do
+  let cmd = Lib1.SelectWorkout n cs
+      st' = Lib3.updateState st cmd
+      resp = unlines (Lib3.renderCommand st' cmd)
+  logger $ "--== PURE STEP: SelectWorkout -> response:\n" ++ resp
+  logger $ "--== PURE STATE AFTER STEP: " ++ show st'
+  runPureInterpreterWithLogger logger st' (next resp)
+
+runPureInterpreterWithLogger logger st (Free (AddExerciseWithWeight a s r w next)) = do
+  let cmd = Lib1.AddExerciseWithWeight a s r w
+      st' = Lib3.updateState st cmd
+      resp = unlines (Lib3.renderCommand st' cmd)
+  logger $ "--== PURE STEP: AddExerciseWithWeight -> response:\n" ++ resp
+  logger $ "--== PURE STATE AFTER STEP: " ++ show st'
+  runPureInterpreterWithLogger logger st' (next resp)
+
+runPureInterpreterWithLogger logger st (Free (AddExerciseNoWeight a s r next)) = do
+  let cmd = Lib1.AddExerciseNoWeight a s r
+      st' = Lib3.updateState st cmd
+      resp = unlines (Lib3.renderCommand st' cmd)
+  logger $ "--== PURE STEP: AddExerciseNoWeight -> response:\n" ++ resp
+  logger $ "--== PURE STATE AFTER STEP: " ++ show st'
+  runPureInterpreterWithLogger logger st' (next resp)
+
+runPureInterpreterWithLogger logger st (Free (RemoveExercise a next)) = do
+  let cmd = Lib1.RemoveExercise a
+      st' = Lib3.updateState st cmd
+      resp = unlines (Lib3.renderCommand st' cmd)
+  logger $ "--== PURE STEP: RemoveExercise -> response:\n" ++ resp
+  logger $ "--== PURE STATE AFTER STEP: " ++ show st'
+  runPureInterpreterWithLogger logger st' (next resp)
+
+runPureInterpreterWithLogger logger st (Free (StartWorkout n next)) = do
+  let cmd = Lib1.StartWorkout n
+      st' = Lib3.updateState st cmd
+      resp = unlines (Lib3.renderCommand st' cmd)
+  logger $ "--== PURE STEP: StartWorkout -> response:\n" ++ resp
+  logger $ "--== PURE STATE AFTER STEP: " ++ show st'
+  runPureInterpreterWithLogger logger st' (next resp)
+
+runPureInterpreterWithLogger logger st (Free (StopWorkout n next)) = do
+  let cmd = Lib1.StopWorkout n
+      st' = Lib3.updateState st cmd
+      resp = unlines (Lib3.renderCommand st' cmd)
+  logger $ "--== PURE STEP: StopWorkout -> response:\n" ++ resp
+  logger $ "--== PURE STATE AFTER STEP: " ++ show st'
+  runPureInterpreterWithLogger logger st' (next resp)
+
+runPureInterpreterWithLogger logger st (Free (ShowAllWorkouts next)) = do
+  let cmd = Lib1.ShowAllWorkouts
+      st' = Lib3.updateState st cmd
+      resp = unlines (Lib3.renderCommand st' cmd)
+  logger $ "--== PURE STEP: ShowAllWorkouts -> response:\n" ++ resp
+  logger $ "--== PURE STATE AFTER STEP: " ++ show st'
+  runPureInterpreterWithLogger logger st' (next resp)
+
+runPureInterpreterWithLogger logger st (Free (ShowWorkout n next)) = do
+  let cmd = Lib1.ShowWorkout n
+      st' = Lib3.updateState st cmd
+      resp = unlines (Lib3.renderCommand st' cmd)
+  logger $ "--== PURE STEP: ShowWorkout -> response:\n" ++ resp
+  logger $ "--== PURE STATE AFTER STEP: " ++ show st'
+  runPureInterpreterWithLogger logger st' (next resp)
+
+runPureInterpreterWithLogger logger st (Free (DumpExamples next)) = do
+  let cmd = Lib1.Dump Lib1.Examples
+      st' = Lib3.updateState st cmd
+      resp = unlines (Lib3.renderCommand st' cmd)
+  logger $ "--== PURE STEP: DumpExamples -> response:\n" ++ resp
+  logger $ "--== PURE STATE AFTER STEP: " ++ show st'
+  runPureInterpreterWithLogger logger st' (next resp)
