@@ -1,17 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
--- Simple Scotty-based HTTP server for the Workout Planner.
--- Behaviour:
---  - Accepts POST /command where the request body is a CLI-style command string.
---  - Parses the command using Lib4.runParser.
---  - Updates the in-memory state (TVar) with Lib3.updateState.
---  - Periodically persists state to file using the storage channel loop.
---
--- Shutdown ordering:
---  - perform a synchronous save first (Lib3.save) while the storage loop is still running,
---  - then cancel background workers (periodic save, storage loop),
-
 import Web.Scotty
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TLE
@@ -32,28 +21,25 @@ import Control.Concurrent.Async (Async, async, cancel)
 
 main :: IO ()
 main = do
-  -- Storage & in-memory app state (as TVar)
+  -- Storage & in-memory state (as TVar)
   stVar <- newTVarIO Lib3.emptyState
 
   -- Storage channel background thread for save/load
   storageChan <- newChan
   storageAsync <- async $ Lib3.storageOpLoop storageChan
 
-  -- load saved state on startup (synchronous)
+  -- load saved state on startup
   _ <- Lib3.load storageChan stVar
 
   -- periodic background saver
   saveAsync <- async $ foreverSave storageChan stVar
 
-  -- Clean shutdown handler (persist data)
+  -- Clean shutdown handler
   let handleShutdown = do
         putStrLn "Shutting down, saving state..."
-        -- ensure we save while storage loop is alive
         _ <- Lib3.save storageChan stVar
-        -- then cancel the background jobs
         cancel saveAsync
         cancel storageAsync
-        -- exit immediately
         exitImmediately ExitSuccess
 
   _ <- installHandler sigINT  (Catch handleShutdown) Nothing

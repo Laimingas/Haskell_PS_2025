@@ -84,7 +84,6 @@ runHttpInterpreter sendAction = iterM interp
 -- Interpreter 2: Pure domain interpreter with state (same as server, but no IO)
 -- ==============================================
 
--- The pure interpreter feeds CLI output string to next step ("Lib2.process" returns [String])
 runPureInterpreter :: Lib3.State -> WorkoutFree a -> (a, Lib3.State)
 runPureInterpreter st (Pure a) = (a, st)
 runPureInterpreter st (Free (CreateWorkout n cs next)) =

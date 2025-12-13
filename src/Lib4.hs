@@ -22,7 +22,7 @@ type Input = String
 type Parser = ExceptT ErrorMsg (State Input)
 
 ------------------------------------------------------------------------
--- Primitive parsing helpers
+-- Parsing helpers
 ------------------------------------------------------------------------
 skipSpaces :: Parser ()
 skipSpaces = do
@@ -46,8 +46,6 @@ parseChar = do
     []     -> return Nothing
     (c:cs) -> lift (put cs) >> return (Just c)
 
-------------------------------------------------------------------------
--- <quoted_string>
 quotedString :: Parser String
 quotedString = do
   skipSpaces
@@ -63,8 +61,7 @@ quotedString = do
         Just '"' -> return (reverse acc)
         Just c   -> parseQuoted (c:acc)
 
-------------------------------------------------------------------------
--- <integer>
+
 intParser :: Parser Int
 intParser = do
   skipSpaces
@@ -73,8 +70,6 @@ intParser = do
   if null num then throwE "Expected integer"
   else lift (put rest) >> return (read num)
 
-------------------------------------------------------------------------
--- <weight> ::= <integer> "kg"
 weightParser :: Parser Int
 weightParser = do
   w <- intParser
@@ -84,9 +79,6 @@ weightParser = do
     Just rest -> lift (put rest) >> return w
     Nothing   -> return w -- leidžiama ir be "kg"
 
-------------------------------------------------------------------------
--- Command lists (command_list parsing)
--- manyCommands prasideda iki '}', rekurisyviai
 manyCommands :: Parser [Lib1.Command]
 manyCommands = do
   skipSpaces
@@ -106,10 +98,6 @@ parseCommandList = do
   string "}"
   return cmds
 
-------------------------------------------------------------------------
--- Main parser combinator (alternatyvų grandinė)
-
--- <command> ::= ...
 parseCommand :: Parser Lib1.Command
 parseCommand = do
   skipSpaces
@@ -126,7 +114,6 @@ parseCommand = do
     , parseDumpExamples
     ]
 
--- Helper: bando parserius paeiliui
 tryParsers :: [Parser a] -> Parser a
 tryParsers []     = throwE "Unknown command"
 tryParsers (p:ps) = ExceptT $ state $ \s ->
@@ -135,7 +122,7 @@ tryParsers (p:ps) = ExceptT $ state $ \s ->
     ok          -> ok
 
 ------------------------------------------------------------------------
--- Concrete command parsers
+-- Command parsers
 ------------------------------------------------------------------------
 
 -- <command> ::= "create workout" <quoted_string> "{" <command_list> "}"
@@ -217,9 +204,6 @@ parseDumpExamples = do
   string "dump examples"
   return $ Lib1.Dump Lib1.Examples
 
-------------------------------------------------------------------------
--- QuickCheck support
-
 instance Arbitrary Lib1.Command where
   arbitrary :: Gen Lib1.Command
   arbitrary =
@@ -243,8 +227,6 @@ instance Arbitrary Lib1.Command where
       arbCmds = do n <- choose (0,2)
                    sequenceA (replicate n arbitrary)
 
-------------------------------------------------------------------------
--- Parser runner export (for servers/clients/etc.)
 
 runParser :: Parser a -> String -> Either ErrorMsg (a, Input)
 runParser p input =
